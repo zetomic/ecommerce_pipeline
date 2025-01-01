@@ -1,0 +1,243 @@
+services:
+
+  zookeeper:
+    image: zookeeper
+    container_name: zookeeper
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: "yes"
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/data
+      - zookeeper-datalog:/datalog
+    networks:
+      - bda-network
+
+  kafka:
+    image: confluentinc/cp-kafka
+    container_name: kafka
+    hostname: kafka
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - bda-network
+
+  namenode:
+    image: bde2020/hadoop-namenode
+    container_name: namenode
+    hostname: namenode
+    volumes:
+      - namenode-data:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+      - DFS_REPLICATION=1
+    ports:
+      - "8020:8020" 
+      - "6000:50070"  
+    networks:
+      - bda-network
+
+  datanode:
+    image: bde2020/hadoop-datanode
+    container_name: datanode
+    hostname: datanode
+    volumes:
+      - datanode-data:/hadoop/dfs/data
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:8020
+    depends_on:
+      - namenode
+    ports:
+      - "5000:50075"  # DataNode Web UI
+    networks:
+      - bda-network
+
+  hbase-master:
+    image: harisekhon/hbase
+    container_name: hbase-master
+    hostname: hbase-master
+    environment:
+      - HBASE_MASTER=true
+      - HADOOP_CONF_DIR=/etc/hadoop
+    depends_on:
+      - namenode
+    ports:
+      - "16010:16010"
+      - "9090:9090"
+    networks:
+      - bda-network
+
+  hbase-regionserver:
+    image: harisekhon/hbase
+    container_name: hbase-regionserver
+    hostname: hbase-regionserver
+    environment:
+      - HADOOP_CONF_DIR=/etc/hadoop
+    depends_on:
+      - hbase-master
+    networks:
+      - bda-network
+
+  spark-master:
+    image: bitnami/spark:latest
+    container_name: spark-master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "7077:7077" 
+      - "8080:8080"  
+    networks:
+      - bda-network
+    user: root
+
+  spark-worker:
+    image: bitnami/spark:latest
+    container_name: spark-worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8081:8081"  # Spark worker UI
+    networks:
+      - bda-network
+    user: root
+
+  x-airflow-common:
+    &airflow-common
+    image: apache/airflow:2.0.0
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres:5432/airflow
+      - AIRFLOW__CORE__FERNET_KEY=FB0o_zt4e3Ziq3LdUUO7F2Z95cvFFx16hU8jTeR1ASM=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__CORE__LOGGING_LEVEL=INFO
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./airflow-data/logs:/opt/airflow/logs
+      - ./airflow-data/plugins:/opt/airflow/plugins
+      - ./airflow-data/airflow.cfg:/opt/airlfow/airflow.cfg
+    depends_on:
+      - postgres
+    networks:
+      - bda-network
+    restart: "no"
+  
+  postgres:
+    image: postgres:12
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=airflow
+      - POSTGRES_PORT=5432
+    ports:
+      - "5432:5432"
+    networks:
+      - bda-network
+  
+  airflow-init:
+    << : *airflow-common
+    container_name: airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - airflow users list || ( airflow db init &&
+        airflow users create
+          --role Admin
+          --username airflow
+          --password airflow
+          --email airflow@airflow.com
+          --firstname airflow
+          --lastname airflow )
+    restart: on-failure
+    networks:
+      - bda-network
+
+  airflow-webserver:
+    << : *airflow-common
+    command: airflow webserver
+    ports:
+      - 8082:8080
+    container_name: airflow_webserver
+    restart: always
+    networks:
+      - bda-network
+
+  airflow-scheduler:
+    << : *airflow-common
+    command: airflow scheduler
+    container_name: airflow_scheduler
+    restart: always
+    networks:
+      - bda-network
+
+  nifi:
+    image: apache/nifi:latest
+    container_name: nifi
+    environment:
+      - NIFI_WEB_HTTP_PORT=8080
+      - SINGLE_USER_CREDENTIALS_USERNAME=admin
+      - SINGLE_USER_CREDENTIALS_PASSWORD=adminpassword
+    ports:
+      - "8090:8080"
+      - "8443:8443"
+    volumes:
+      - nifi-data:/opt/nifi/nifi-current/logs
+    networks:
+      - bda-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    networks:
+      - bda-network
+
+  # bi_dashboard:
+  #   build:
+  #     context: ./dashboards/bi_dashboard
+  #   container_name: bi_dashboard
+  #   depends_on:
+  #     - kafka
+  #   ports:
+  #     - "8501:8501"
+  #   networks:
+  #     - bda-network
+
+  # admin_dashboard:
+  #   build:
+  #     context: ./dashboards/admin_dashboard
+  #   container_name: admin_dashboard
+  #   depends_on:
+  #     - hbase-master
+  #     - nifi
+  #     - mongodb
+  #   ports:
+  #     - "8502:8502"
+  #   networks:
+  #     - bda-network
+
+volumes:
+  namenode-data:
+  datanode-data:
+  zookeeper-data:
+  kafka-data:
+  zookeeper-datalog:
+  nifi-data:
+
+networks:
+  bda-network:
+    driver: bridge
