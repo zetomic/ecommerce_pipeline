@@ -206,30 +206,7 @@ services:
     networks:
       - bda-network
 
-  # bi_dashboard:
-  #   build:
-  #     context: ./dashboards/bi_dashboard
-  #   container_name: bi_dashboard
-  #   depends_on:
-  #     - kafka
-  #   ports:
-  #     - "8501:8501"
-  #   networks:
-  #     - bda-network
-
-  # admin_dashboard:
-  #   build:
-  #     context: ./dashboards/admin_dashboard
-  #   container_name: admin_dashboard
-  #   depends_on:
-  #     - hbase-master
-  #     - nifi
-  #     - mongodb
-  #   ports:
-  #     - "8502:8502"
-  #   networks:
-  #     - bda-network
-
+  
 volumes:
   namenode-data:
   datanode-data:
