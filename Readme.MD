@@ -48,7 +48,7 @@ Use Docker Compose to build and run all necessary containers, including Kafka, M
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/your-repo-name.git
+git clone https://github.com/zetomic/ecommerce_pipeline.git
 cd your-repo-name
 
 # Start the containers
