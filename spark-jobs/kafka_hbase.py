@@ -1,5 +1,7 @@
+# kafka_hbase.py
+
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, lit
+from pyspark.sql.functions import from_json, col
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
 import happybase
 import logging
@@ -30,7 +32,7 @@ def write_to_hbase(partition, table_name):
 
             # Prepare HBase columns under respective column families
             columns = {
-                'product_data:product_id': str(record_dict.get('product_id', '')),
+                'product_data:product_id': record_dict.get('product_id', ''),
                 'product_data:product_name': record_dict.get('product_name', ''),
                 'product_data:unit': record_dict.get('unit', ''),
                 'product_data:product_type': record_dict.get('product_type', ''),
@@ -39,19 +41,19 @@ def write_to_hbase(partition, table_name):
                 'product_data:l0_category': record_dict.get('l0_category', ''),
                 'product_data:l1_category': record_dict.get('l1_category', ''),
                 'product_data:l2_category': record_dict.get('l2_category', ''),
-                'product_data:l0_category_id': str(record_dict.get('l0_category_id', '')),
-                'product_data:l1_category_id': str(record_dict.get('l1_category_id', '')),
-                'product_data:l2_category_id': str(record_dict.get('l2_category_id', '')),
+                'product_data:l0_category_id': record_dict.get('l0_category_id', ''),
+                'product_data:l1_category_id': record_dict.get('l1_category_id', ''),
+                'product_data:l2_category_id': record_dict.get('l2_category_id', ''),
 
-                'order_data:order_id': str(record_dict.get('order_id', '')),
-                'order_data:cart_id': str(record_dict.get('cart_id', '')),
+                'order_data:order_id': record_dict.get('order_id', ''),
+                'order_data:cart_id': record_dict.get('cart_id', ''),
 
-                'customer_data:dim_customer_key': str(record_dict.get('dim_customer_key', '')),
+                'customer_data:dim_customer_key': record_dict.get('dim_customer_key', ''),
 
-                'pricing:procured_quantity': str(record_dict.get('procured_quantity', '')),
-                'pricing:unit_selling_price': str(record_dict.get('unit_selling_price', '')),
-                'pricing:total_discount_amount': str(record_dict.get('total_discount_amount', '')),
-                'pricing:total_weighted_landing_price': str(record_dict.get('total_weighted_landing_price', '')),
+                'pricing:procured_quantity': record_dict.get('procured_quantity', ''),
+                'pricing:unit_selling_price': record_dict.get('unit_selling_price', ''),
+                'pricing:total_discount_amount': record_dict.get('total_discount_amount', ''),
+                'pricing:total_weighted_landing_price': record_dict.get('total_weighted_landing_price', ''),
 
                 'metadata:date_': record_dict.get('date_', ''),
                 'metadata:city_name': record_dict.get('city_name', '')
@@ -75,7 +77,7 @@ def main():
 
     logger.info("Spark session started.")
 
-    kafka_bootstrap_servers = "kafka:9092"
+    kafka_bootstrap_servers = "localhost:29092"  # Updated to match your Kafka producer
     input_topic = "ecommerce"
     table_name = "ecommerce_data"
 
