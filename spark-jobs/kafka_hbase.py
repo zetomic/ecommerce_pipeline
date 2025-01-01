@@ -1,17 +1,16 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col
+from pyspark.sql.functions import from_json, col, lit
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, IntegerType
 import happybase
-import json
 import logging
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def write_to_hbase(record, table_name):
+def write_to_hbase(partition, table_name):
     """
-    Writes a single record to the specified HBase table.
+    Writes records from a partition to the specified HBase table.
     """
     try:
         # Establish connection to HBase
@@ -19,67 +18,90 @@ def write_to_hbase(record, table_name):
         connection.open()
         table = connection.table(table_name)
 
-        # Prepare row key (you might need to choose an appropriate key based on your data)
-        # For simplicity, using a combination of metric and a unique identifier
-        # Here, assuming that each record has a unique field like 'product_name' or 'brand_name'
-        if table_name == 'top_products':
-            row_key = record.get('product_name', '')  # Ensure uniqueness
-        elif table_name == 'top_brands':
-            row_key = record.get('brand_name', '')
-        elif table_name == 'sales_by_category' or table_name == 'avg_price_by_category':
-            row_key = record.get('l1_category', '')
-        elif table_name == 'quantity_by_city' or table_name == 'orders_by_city':
-            row_key = record.get('city_name', '')
-        elif table_name == 'sales_trend':
-            row_key = f"{record.get('l1_category', '')}_{record.get('window', {}).get('start', '')}"
-        elif table_name == 'discount_by_brand':
-            row_key = record.get('brand_name', '')
-        elif table_name == 'aov_by_customer':
-            row_key = str(record.get('dim_customer_key', ''))
-        else:
-            row_key = 'unknown'
+        for record in partition:
+            record_dict = record.asDict()
 
-        # Prepare HBase columns
-        columns = {}
-        for key, value in record.items():
-            if key != 'metric':
-                columns[f'metrics:{key}'] = str(value)
+            # Define row key using 'order_id' to ensure uniqueness
+            order_id = record_dict.get('order_id')
+            if not order_id:
+                logger.warning(f"Record without 'order_id': {record_dict}")
+                continue
+            row_key = str(order_id)
 
-        # Write to HBase
-        table.put(row_key, columns)
-        logger.info(f"Written to HBase table '{table_name}': {record}")
+            # Prepare HBase columns under respective column families
+            columns = {
+                'product_data:product_id': str(record_dict.get('product_id', '')),
+                'product_data:product_name': record_dict.get('product_name', ''),
+                'product_data:unit': record_dict.get('unit', ''),
+                'product_data:product_type': record_dict.get('product_type', ''),
+                'product_data:brand_name': record_dict.get('brand_name', ''),
+                'product_data:manufacturer_name': record_dict.get('manufacturer_name', ''),
+                'product_data:l0_category': record_dict.get('l0_category', ''),
+                'product_data:l1_category': record_dict.get('l1_category', ''),
+                'product_data:l2_category': record_dict.get('l2_category', ''),
+                'product_data:l0_category_id': str(record_dict.get('l0_category_id', '')),
+                'product_data:l1_category_id': str(record_dict.get('l1_category_id', '')),
+                'product_data:l2_category_id': str(record_dict.get('l2_category_id', '')),
+
+                'order_data:order_id': str(record_dict.get('order_id', '')),
+                'order_data:cart_id': str(record_dict.get('cart_id', '')),
+
+                'customer_data:dim_customer_key': str(record_dict.get('dim_customer_key', '')),
+
+                'pricing:procured_quantity': str(record_dict.get('procured_quantity', '')),
+                'pricing:unit_selling_price': str(record_dict.get('unit_selling_price', '')),
+                'pricing:total_discount_amount': str(record_dict.get('total_discount_amount', '')),
+                'pricing:total_weighted_landing_price': str(record_dict.get('total_weighted_landing_price', '')),
+
+                'metadata:date_': record_dict.get('date_', ''),
+                'metadata:city_name': record_dict.get('city_name', '')
+            }
+
+            # Write to HBase
+            table.put(row_key.encode('utf-8'), columns)
+            logger.info(f"Written to HBase table '{table_name}': Order ID {order_id}")
+
     except Exception as e:
         logger.error(f"Error writing to HBase table '{table_name}': {e}")
+
     finally:
         connection.close()
 
 def main():
     # Initialize Spark Session
     spark = SparkSession.builder \
-        .appName("WriteEDAResultsToHBase") \
+        .appName("EcommerceDataToHBase") \
         .getOrCreate()
 
     logger.info("Spark session started.")
 
     kafka_bootstrap_servers = "kafka:9092"
-    input_topic = "eda_results"
+    input_topic = "ecommerce"
+    table_name = "ecommerce_data"
 
-    # Define schema based on eda_results messages
+    # Define schema based on example data
     json_schema = StructType([
-        StructField("metric", StringType(), True),
+        StructField("product_id", StringType(), True),
         StructField("product_name", StringType(), True),
+        StructField("unit", StringType(), True),
+        StructField("product_type", StringType(), True),
         StructField("brand_name", StringType(), True),
-        StructField("brand_count", IntegerType(), True),
+        StructField("manufacturer_name", StringType(), True),
+        StructField("l0_category", StringType(), True),
         StructField("l1_category", StringType(), True),
-        StructField("total_sales", DoubleType(), True),
-        StructField("total_procured_quantity", IntegerType(), True),
-        StructField("sales", DoubleType(), True),
-        StructField("avg_unit_selling_price", DoubleType(), True),
-        StructField("total_discount_amount", DoubleType(), True),
-        StructField("total_orders", IntegerType(), True),
-        StructField("total_quantity_sold", IntegerType(), True),
-        StructField("average_order_value", DoubleType(), True),
-        # Add other fields as necessary
+        StructField("l2_category", StringType(), True),
+        StructField("l0_category_id", StringType(), True),
+        StructField("l1_category_id", StringType(), True),
+        StructField("l2_category_id", StringType(), True),
+        StructField("date_", StringType(), True),
+        StructField("city_name", StringType(), True),
+        StructField("order_id", StringType(), True),
+        StructField("cart_id", StringType(), True),
+        StructField("dim_customer_key", StringType(), True),
+        StructField("procured_quantity", StringType(), True),
+        StructField("unit_selling_price", StringType(), True),
+        StructField("total_discount_amount", StringType(), True),
+        StructField("total_weighted_landing_price", StringType(), True),
     ])
 
     # Read stream from Kafka
@@ -104,24 +126,14 @@ def main():
 
     logger.info("JSON parsed successfully.")
 
-    # Function to process each row and write to HBase
+    # Function to process each batch
     def foreach_batch_function(df, epoch_id):
-        if df.isEmpty():
+        if df.rdd.isEmpty():
             logger.info(f"No data received in epoch {epoch_id}.")
             return
 
-        # Convert DataFrame to Pandas for iteration (not recommended for large data)
-        # For better performance, consider using foreachPartition
-        records = df.collect()
-
-        for record in records:
-            record_dict = record.asDict()
-            metric = record_dict.get('metric')
-            if metric:
-                table_name = metric
-                write_to_hbase(record_dict, table_name)
-            else:
-                logger.warning(f"Record without metric field: {record_dict}")
+        # Use foreachPartition for better performance
+        df.foreachPartition(lambda partition: write_to_hbase(partition, table_name))
 
     # Start streaming query
     query = df_parsed.writeStream \

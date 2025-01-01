@@ -1,5 +1,3 @@
-# create_hbase_table.py
-
 import happybase
 import logging
 
