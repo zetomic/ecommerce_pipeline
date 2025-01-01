@@ -27,6 +27,39 @@ Zuhair Arif - Danish Raza - Shaheer Sabri
 
 This project implements a real-time data pipeline for e-commerce analytics. It leverages Docker, Apache Kafka, Apache Spark, MongoDB, Apache NiFi, and Streamlit to ingest, process, analyze, and visualize data in real-time. The pipeline facilitates efficient data flow from ingestion to actionable insights through an interactive dashboard.
 
+## Table of Contents
+
+                          +--------------------+
+                          |      Kafka         |
+                          |  (ecommerce topic) |
+                          +--------------------+
+                                   |
+                 +-----------------+------------------+
+                 |                                    |
+        +--------v--------+                +----------v-----------+
+        |      NiFi       |                |      Spark           |
+        |  Ingests data   |                |  Processes data       |
+        |  from Kafka     |                |  from Kafka topic     |
+        +--------+--------+                | (ecommerce topic)     |
+                 |                         +----------+------------+
+                 |                                    |
+        +--------v--------+                           |
+        |     HBase       |                           |
+        | Stores raw data |                           |
+        +-----------------+                           |
+                                                      |
+                                           +----------v------------+
+                                           |     Kafka             |
+                                           |  (eda-results topic)  |
+                                           +----------+------------+
+                                                      |
+                                           +----------v------------+
+                                           |     Streamlit          |
+                                           |    Dashboards          |
+                                           |  (Subscribes to        |
+                                           |   eda-results topic)   |
+                                           +------------------------+
+
 
 ## Prerequisites
 
