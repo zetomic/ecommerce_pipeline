@@ -29,36 +29,49 @@ This project implements a real-time data pipeline for e-commerce analytics. It l
 
 ## Table of Contents
 
-                          +--------------------+
-                          |      Kafka         |
-                          |  (ecommerce topic) |
-                          +--------------------+
-                                   |
-                 +-----------------+------------------+
-                 |                                    |
-        +--------v--------+                +----------v-----------+
-        |      NiFi       |                |      Spark           |
-        |  Ingests data   |                |  Processes data       |
-        |  from Kafka     |                |  from Kafka topic     |
-        +--------+--------+                | (ecommerce topic)     |
-                 |                         +----------+------------+
-                 |                                    |
-        +--------v--------+                           |
-        |     HBase       |                           |
-        | Stores raw data |                           |
-        +-----------------+                           |
-                                                      |
-                                           +----------v------------+
-                                           |     Kafka             |
-                                           |  (eda-results topic)  |
-                                           +----------+------------+
-                                                      |
-                                           +----------v------------+
-                                           |     Streamlit          |
-                                           |    Dashboards          |
-                                           |  (Subscribes to        |
-                                           |   eda-results topic)   |
-                                           +------------------------+
+                               +--------------------+
+                              |      Kafka         |
+                              |  (ecommerce topic) |
+                              +--------------------+
+                                       |
+                     +-----------------+------------------+
+                     |                                    |
+            +--------v--------+                +----------v-----------+
+            |      NiFi       |                |      Spark           |
+            |  Ingests data   |                |  Processes data      |
+            |  from Kafka     |                |  from Kafka topic    |
+            +--------+--------+                | (ecommerce topic)    |
+                     |                         +----------+------------+
+                     |                                    |
+          +----------v-----------+                        |
+          |      MongoDB         |                        |
+          |  (Stores ingested    |                        |
+          |   data from NiFi)    |                        |
+          +----------+-----------+                        |
+                     |                                    |
+                     |                         +----------v------------+
+                     |                         |         HBase         |
+                     |                         |  (Stores raw data)    |
+                     |                         +----------+------------+
+                     |                                    |
+                     |                         +----------v------------+
+                     |                         |     Kafka             |
+                     |                         |  (eda-results topic)  |
+                     |                         +----------+------------+
+                     |                                    |
+                     |                         +----------v------------+
+                     |                         |     Streamlit         |
+                     |                         |    Dashboards         |
+                     |                         |  (Subscribes to       |
+                     |                         |   eda-results topic)  |
+                     |                         +------------------------+
+                     |
+              +------v-------+
+              |    HBase     |
+              | (Optional:   |
+              | Additional   |
+              | Storage)     |
+              +--------------+
 
 
 ## Prerequisites
