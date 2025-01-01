@@ -1,6 +1,6 @@
 # Real-Time E-Commerce Data Pipeline
 
-![Project Logo](path/to/logo.png) <!-- Optional: Add a project logo -->
+Zuhair Arif - Danish Raza - Shaheer Sabri
 
 ## Table of Contents
 
