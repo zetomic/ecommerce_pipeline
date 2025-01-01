@@ -1,8 +1,12 @@
 import pandas as pd
 
 def main():
-    # Load the CSV file
-    df = pd.read_csv('ecommerce_clean.csv', engine='python')
+    # Load the CSV files
+    sales_df = pd.read_csv('Sales.csv', engine='python')
+    products_df = pd.read_csv('products.csv', engine='python')
+
+    # Join the dataframes on 'product_id'
+    df = pd.merge(sales_df, products_df, on='product_id')
 
     # Drop the specific columns
     columns_to_drop = ['Unnamed: 0_x', 'Unnamed: 0.2', 'Unnamed: 0.1', 'Unnamed: 0_y']
