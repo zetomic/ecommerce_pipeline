@@ -6,3 +6,4 @@ data/
 prompt
 airflow-data/logs
 products.csv
+streamlit-dashboard.py
