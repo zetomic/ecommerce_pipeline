@@ -95,7 +95,7 @@ Use Docker Compose to build and run all necessary containers, including Kafka, M
 ```bash
 # Clone the repository
 git clone https://github.com/zetomic/ecommerce_pipeline.git
-cd your-repo-name
+cd ecommerce_pipeline
 
 # Start the containers
 docker-compose up -d
@@ -114,12 +114,6 @@ Download the required dataset from Kaggle and execute the data pruning script.
 ```bash
 # Navigate to the data preparation directory
 cd data-preparation
-
-# Download data from Kaggle (ensure you have Kaggle API credentials set up)
-kaggle datasets download -d your-dataset-name
-
-# Unzip the downloaded dataset
-unzip your-dataset-name.zip -d raw-data
 
 # Execute the data pruning script
 python dataprune.py
@@ -170,7 +164,7 @@ Create a MongoDB collection based on the columns of the joined dataset.
 docker exec -it mongodb bash
 
 # Launch Mongo shell
-mongo
+mongosh
 
 # Inside the Mongo shell, create the collection
 use ecommerce_db
